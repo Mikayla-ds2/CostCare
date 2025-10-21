@@ -2,6 +2,7 @@ import gradio as gr
 import pickle
 import numpy as np
 import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
 
 with open('decision_tree_model.pkl', 'rb') as f:
     model = pickle.load(f)
@@ -47,14 +48,20 @@ def predictInsuranceCost(age, bmi, children, smoker, sex, region):
     if missing:
         raise ValueError(f"Missing expected features: {missing}")
     
-    features_df = pd.DataFrame([features])[featureNames]
-    features_scaled = scaler_x.transform(features_df)
+    features_df = pd.DataFrame([features])
     
-    prediction_scaled = model.predict(features_scaled)[0]
+    continuous_features = ['age_squared', 'log_bmi']
+    binary_features = list(set(features_df.columns) - set(continuous_features))
     
+    features_cont = scaler_x.transform(features_df[continuous_features])
+    features_bin = features_df[binary_features].values
+    
+    features_scaled = np.concatenate([features_cont, features_bin], axis=1)
+    features_scaled_df = pd.DataFrame(features_scaled, columns=featureNames)
+
+    prediction_scaled = model.predict(features_scaled_df)[0]
     prediction_log = scaler_y.inverse_transform([[prediction_scaled]])[0][0]
-    
-    prediction_raw = np.expm1(prediction_log)
+    prediction_raw = np.expm1(prediction_log)    
     
     if prediction_raw < 5000:
         tier_correction = 800
