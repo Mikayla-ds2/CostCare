@@ -152,12 +152,29 @@ join categorical on insurance.patient_id = categorical.patient_id
 group by insurance.age, insurance.sex, insurance.bmi, insurance.children, insurance.smoker, insurance.region, insurance.charges, categorical.age_category, categorical.bmi_category
 having count(*) > 1;
 
+drop table if EXISTS errors_dt
+
 CREATE TABLE IF NOT EXISTS errors_dt (
+   errorID int PRIMARY KEY,
    true_value FLOAT,
    predicted_value FLOAT,
    error FLOAT,
    abs_error FLOAT,
-   pct_error FLOAT
+   pct_error FLOAT,
+   age_squared INT,
+   log_bmi FLOAT,
+   elderly_smoker int,
+   obese_smoker int,
+   has_children int,
+   largeFamily int,
+   northeast int,
+   northwest int,
+   southeast int,
+   southwest int,
+   female int,
+   male int,
+   no int,
+   yes int
 );
 
 SELECT column_name, data_type
@@ -165,35 +182,84 @@ FROM information_schema.columns
 WHERE table_name = 'errors_dt';
 
 -- adding the data --
-COPY errors_dt(true_value, predicted_value, error, abs_error, pct_error)
+COPY errors_dt(errorID, true_value, predicted_value, error, abs_error, pct_error, age_squared, log_bmi, elderly_smoker, obese_smoker, has_children, largeFamily, northeast, northwest, southeast, southwest, female, male, no, yes)
 FROM '/tmp/errors_dt.csv'
 DELIMITER ','
 CSV HEADER;
 
-create table if not exists errors_rf(
-    true_value FLOAT,
-   predicted_value FLOAT,
-   error FLOAT,
-   abs_error FLOAT,
-   pct_error FLOAT
+select * from errors_dt;
+
+select count(*) from errors_dt
+where northeast = 1 and
+female = 1;
+
+select age_squared, pct_error, largeFamily from errors_dt
+where northeast = 1 and female = 1
+
+drop table if exists cleaned_data
+
+create table if not exists cleaned_data(
+    personID Serial PRIMARY key, 
+    age INT,
+    sex VARCHAR(10),
+    bmi FLOAT,
+    children INT,
+    smoker VARCHAR(5),
+    region VARCHAR(20),
+    charges FLOAT,
+    age_category VARCHAR(20),
+    bmi_category VARCHAR(20),
+    charges_category VARCHAR(20),
+    elderly_smoker BOOLEAN,
+    obese_smoker BOOLEAN,
+    has_children BOOLEAN,
+    largeFamily BOOLEAN,
+    age_squared int,
+    log_bmi FLOAT,
+    log_charges FLOAT,
+    northeast BOOLEAN,
+    northwest BOOLEAN,
+    southeast BOOLEAN,
+    southwest BOOLEAN,
+    female BOOLEAN,
+    male BOOLEAN,
+    no BOOLEAN,
+    yes BOOLEAN
 );
 
-copy errors_rf(true_value, predicted_value, error, abs_error, pct_error)
-from '/tmp/errors_rf.csv'
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'cleaned_data';
+
+COPY cleaned_data(age, sex, bmi, children, smoker, region, charges, age_category, bmi_category, charges_category, 
+elderly_smoker, obese_smoker, has_children, largeFamily, age_squared, log_bmi, log_charges, 
+northeast, northwest, southeast, southwest, female, male, no, yes)
+FROM '/tmp/cleaned_data.csv'
 DELIMITER ','
-csv HEADER;
+CSV HEADER;
 
-create table if not exists errors_nn(
-    true_value FLOAT,
-   predicted_value FLOAT,
-   error FLOAT,
-   abs_error FLOAT,
-   pct_error FLOAT
-);
+select * from cleaned_data
 
-copy errors_nn(true_value, predicted_value, error, abs_error, pct_error)
-from '/tmp/errors_nn.csv'
-DELIMITER ','
-csv HEADER;
+select * from cleaned_data
+where largeFamily = false
+and bmi_category = 'Underweight'
+order by sex;
 
+select personID, bmi_category, children, smoker, region, charges_category from cleaned_data
+where children = 2
+and sex = 'female'
+and age_category = '36-45'
+order by bmi_category;
 
+select personID, age, sex, bmi_category, charges, smoker, region from cleaned_data
+where charges > 9900
+and charges < 9999
+
+select personID, age, sex, bmi, children, charges, smoker, charges_category from cleaned_data
+where region = 'southwest'
+order by charges_category desc;
+
+select count(*) as chargesCategoryCount, charges_category from cleaned_data
+where region = 'southwest'
+group by charges_category
+order by chargesCategoryCount desc;
