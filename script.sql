@@ -95,6 +95,12 @@ group by children
 ORDER BY children asc;
 -- quite imbalanced (573, 324, 240, 157, 25, 18)  mean = 222 --
 
+select * from insurance
+
+select region, avg(children) as averageChildren from insurance
+group by region
+order by averageChildren desc;
+
 -- creating this table to utilize numerical => categorical features to check for "imbalance"
 drop table if EXISTS insurance_categorical
 
@@ -130,6 +136,10 @@ join categorical on insurance.patient_id = categorical.patient_id
 group by categorical.age_category
 order by categorical.age_category asc;
 -- balanced (305, 268, 263, 284, 216) mean = 267
+
+select age_category, count(*) as count from categorical
+group by age_category
+order by count asc;
 
 -- now looking @ bmi --
 select categorical.bmi_category, count(*) as bmi_category_count from insurance
